@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crop Image</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div id="nav"></div>
+<main class="container">
+  <h1>Crop Image</h1>
+  <div class="card">
+    <h3>1. Choose Image</h3>
+    <div class="drop" id="drop">
+      <p>Drag and drop an image here, or</p>
+      <input type="file" id="file" accept="image/*">
+    </div>
+    <p class="info" id="info"></p>
+  </div>
+  <div class="card">
+    <h3>2. Drag the box to crop</h3>
+    <p class="note">Drag the box to move it, or drag a handle to resize. Works with touch too.</p>
+    <div class="stage" id="stage">
+      <img id="pic" alt="Image to crop">
+      <div class="crop-box" id="box" data-h="move">
+        <div class="hd nw" data-h="nw"></div>
+        <div class="hd n" data-h="n"></div>
+        <div class="hd ne" data-h="ne"></div>
+        <div class="hd e" data-h="e"></div>
+        <div class="hd se" data-h="se"></div>
+        <div class="hd s" data-h="s"></div>
+        <div class="hd sw" data-h="sw"></div>
+        <div class="hd w" data-h="w"></div>
+      </div>
+    </div>
+    <div class="row">
+      <label class="field">X<input type="number" id="x" min="0"></label>
+      <label class="field">Y<input type="number" id="y" min="0"></label>
+      <label class="field">Width<input type="number" id="cw" min="1"></label>
+      <label class="field">Height<input type="number" id="ch" min="1"></label>
+      <label class="field">Format
+        <select id="fmt">
+          <option value="image/png">PNG</option>
+          <option value="image/jpeg">JPG</option>
+          <option value="image/webp">WebP</option>
+        </select>
+      </label>
+    </div>
+    <button class="btn" id="go">Crop →</button>
+    <p class="msg" id="msg"></p>
+  </div>
+  <div class="card" id="resultCard" hidden>
+    <h3>Result</h3>
+    <img id="out" class="preview" alt="Cropped image">
+    <p class="info" id="resultInfo"></p>
+    <button class="btn" id="dl">⬇ Download</button>
+  </div>
+</main>
+<script src="shared.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const stage = $("stage"), box = $("box");
+  let img = null, crop = { x: 0, y: 0, w: 0, h: 0 }, drag = null;
+
+  function clampCrop(c) {
+    const W = img.width, H = img.height;
+    const w = Math.min(Math.max(1, c.w), W);
+    const h = Math.min(Math.max(1, c.h), H);
+    const x = Math.min(Math.max(0, c.x), W - w);
+    const y = Math.min(Math.max(0, c.y), H - h);
+    return { x: x, y: y, w: w, h: h };
+  }
+
+  // Moves the box on screen (in percent of the image). syncInputs updates the number fields.
+  function render(syncInputs) {
+    const W = img.width, H = img.height;
+    box.style.left = (crop.x / W * 100) + "%";
+    box.style.top = (crop.y / H * 100) + "%";
+    box.style.width = (crop.w / W * 100) + "%";
+    box.style.height = (crop.h / H * 100) + "%";
+    if (syncInputs) {
+      $("x").value = Math.round(crop.x);
+      $("y").value = Math.round(crop.y);
+      $("cw").value = Math.round(crop.w);
+      $("ch").value = Math.round(crop.h);
+    }
+  }
+
+  setupDrop($("drop"), $("file"), async function (f) {
+    if (!f.type.startsWith("image/")) { $("msg").textContent = "Please choose an image."; return; }
+    $("msg").textContent = "";
+    img = await loadImage(f);
+    $("pic").src = img.src;
+    $("info").textContent = img.width + " x " + img.height + " · " + fmtSize(f.size);
+    $("resultCard").hidden = true;
+    crop = { x: 0, y: 0, w: img.width, h: img.height };
+    render(true);
+  });
+
+  // Dragging the box or its handles
+  box.addEventListener("pointerdown", function (e) {
+    const t = e.target.closest("[data-h]");
+    if (!t || !img) return;
+    e.preventDefault();
+    box.setPointerCapture(e.pointerId);
+    drag = { h: t.dataset.h, sx: e.clientX, sy: e.clientY, start: Object.assign({}, crop) };
+  });
+
+  box.addEventListener("pointermove", function (e) {
+    if (!drag) return;
+    const r = stage.getBoundingClientRect();
+    const dx = (e.clientX - drag.sx) * img.width / r.width;
+    const dy = (e.clientY - drag.sy) * img.height / r.height;
+    let x = drag.start.x, y = drag.start.y, w = drag.start.w, h = drag.start.h;
+
+    if (drag.h === "move") {
+      x += dx; y += dy;
+    } else {
+      if (drag.h.indexOf("w") !== -1) { x += dx; w -= dx; }
+      if (drag.h.indexOf("e") !== -1) { w += dx; }
+      if (drag.h.indexOf("n") !== -1) { y += dy; h -= dy; }
+      if (drag.h.indexOf("s") !== -1) { h += dy; }
+    }
+    crop = clampCrop({ x: x, y: y, w: w, h: h });
+    render(true);
+  });
+
+  function endDrag() { drag = null; }
+  box.addEventListener("pointerup", endDrag);
+  box.addEventListener("pointercancel", endDrag);
+
+  // Typing in the number fields
+  ["x", "y", "cw", "ch"].forEach(function (id) {
+    $(id).addEventListener("input", function () {
+      const x = parseFloat($("x").value), y = parseFloat($("y").value);
+      const w = parseFloat($("cw").value), h = parseFloat($("ch").value);
+      if ([x, y, w, h].some(isNaN) || !img) return;
+      crop = clampCrop({ x: x, y: y, w: w, h: h });
+      render(false);
+    });
+  });
+
+  $("go").addEventListener("click", function () {
+    if (!img) { $("msg").textContent = "Choose an image first."; return; }
+    const x = Math.round(crop.x), y = Math.round(crop.y);
+    const w = Math.max(1, Math.round(crop.w)), h = Math.max(1, Math.round(crop.h));
+    const c = document.createElement("canvas");
+    c.width = w;
+    c.height = h;
+    c.getContext("2d").drawImage(img, x, y, w, h, 0, 0, w, h);
+    output(c, $("fmt").value);
+  });
+</script>
+</body>
+</html>

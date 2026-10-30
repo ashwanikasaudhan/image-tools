@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meme Generator</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div id="nav"></div>
+<main class="container">
+  <h1>Meme Generator</h1>
+  <div class="card">
+    <h3>1. Choose Image</h3>
+    <div class="drop" id="drop">
+      <p>Drag and drop an image here, or</p>
+      <input type="file" id="file" accept="image/*">
+    </div>
+    <p class="info" id="info"></p>
+  </div>
+  <div class="card">
+    <h3>2. Meme Text</h3>
+    <div class="row">
+      <label class="field">Top text<input type="text" id="top" style="width:260px" placeholder="TOP TEXT"></label>
+      <label class="field">Bottom text<input type="text" id="bottom" style="width:260px" placeholder="BOTTOM TEXT"></label>
+    </div>
+    <canvas id="preview" class="preview"></canvas>
+    <div class="row">
+      <label class="field">Format
+        <select id="fmt">
+          <option value="image/jpeg">JPG</option>
+          <option value="image/png">PNG</option>
+          <option value="image/webp">WebP</option>
+        </select>
+      </label>
+      <button class="btn" id="go">Save meme →</button>
+    </div>
+    <p class="msg" id="msg"></p>
+  </div>
+  <div class="card" id="resultCard" hidden>
+    <h3>Result</h3>
+    <img id="out" class="preview" alt="Meme">
+    <p class="info" id="resultInfo"></p>
+    <button class="btn" id="dl">⬇ Download</button>
+  </div>
+</main>
+<script src="shared.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  let img = null;
+
+  function draw() {
+    if (!img) return;
+    const c = $("preview");
+    c.width = img.width;
+    c.height = img.height;
+    const ctx = c.getContext("2d");
+    ctx.drawImage(img, 0, 0);
+
+    const size = Math.max(16, Math.round(c.width / 10));
+    ctx.font = "bold " + size + "px Impact, 'Arial Black', Arial";
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#fff";
+    ctx.strokeStyle = "#000";
+    ctx.lineWidth = Math.max(2, size / 12);
+    ctx.lineJoin = "round";
+
+    const top = $("top").value.toUpperCase();
+    const bottom = $("bottom").value.toUpperCase();
+    const margin = size * 0.25;
+
+    ctx.textBaseline = "top";
+    if (top) { ctx.strokeText(top, c.width / 2, margin); ctx.fillText(top, c.width / 2, margin); }
+    ctx.textBaseline = "bottom";
+    if (bottom) {
+      ctx.strokeText(bottom, c.width / 2, c.height - margin);
+      ctx.fillText(bottom, c.width / 2, c.height - margin);
+    }
+  }
+
+  ["top", "bottom"].forEach(id => $(id).addEventListener("input", draw));
+
+  setupDrop($("drop"), $("file"), async function (f) {
+    if (!f.type.startsWith("image/")) { $("msg").textContent = "Please choose an image."; return; }
+    $("msg").textContent = "";
+    img = await loadImage(f);
+    $("info").textContent = img.width + " x " + img.height + " · " + fmtSize(f.size);
+    $("resultCard").hidden = true;
+    draw();
+  });
+
+  $("go").addEventListener("click", function () {
+    if (!img) { $("msg").textContent = "Choose an image first."; return; }
+    output($("preview"), $("fmt").value);
+  });
+</script>
+</body>
+</html>

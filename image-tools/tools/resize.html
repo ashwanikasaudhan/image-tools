@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resize Image</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div id="nav"></div>
+<main class="container">
+  <h1>Resize Image</h1>
+  <div class="card">
+    <h3>1. Choose Image</h3>
+    <div class="drop" id="drop">
+      <p>Drag and drop an image here, or</p>
+      <input type="file" id="file" accept="image/*">
+    </div>
+    <p class="info" id="info"></p>
+  </div>
+  <div class="card">
+    <h3>2. New Size</h3>
+    <div class="row">
+      <label class="field">Width (px)<input type="number" id="w" min="1"></label>
+      <label class="field">Height (px)<input type="number" id="h" min="1"></label>
+      <label class="field"><span><input type="checkbox" id="lock" checked> Lock aspect ratio</span></label>
+      <label class="field">Format
+        <select id="fmt">
+          <option value="image/jpeg">JPG</option>
+          <option value="image/png">PNG</option>
+          <option value="image/webp">WebP</option>
+        </select>
+      </label>
+    </div>
+    <div class="row">
+      <label class="field">Target size (optional)<input type="number" id="ts" min="1" placeholder="e.g. 500"></label>
+      <label class="field">Unit
+        <select id="tu"><option value="KB">KB</option><option value="MB">MB</option></select>
+      </label>
+    </div>
+    <p class="note">Target size works for JPG and WebP only. Leave it empty to resize without a size limit.</p>
+    <button class="btn" id="go">Resize →</button>
+    <p class="msg" id="msg"></p>
+  </div>
+  <div class="card" id="resultCard" hidden>
+    <h3>Result</h3>
+    <img id="out" class="preview" alt="Resized image">
+    <p class="info" id="resultInfo"></p>
+    <button class="btn" id="dl">⬇ Download</button>
+  </div>
+</main>
+<script src="shared.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  let img = null;
+
+  function targetBytes() {
+    const v = Number($("ts").value);
+    return v ? v * ($("tu").value === "MB" ? 1048576 : 1024) : 0;
+  }
+
+  setupDrop($("drop"), $("file"), async function (f) {
+    if (!f.type.startsWith("image/")) { $("msg").textContent = "Please choose an image."; return; }
+    $("msg").textContent = "";
+    img = await loadImage(f);
+    $("w").value = img.width;
+    $("h").value = img.height;
+    $("info").textContent = img.width + " x " + img.height + " · " + fmtSize(f.size);
+    $("resultCard").hidden = true;
+  });
+
+  $("w").addEventListener("input", function () {
+    if ($("lock").checked && img && $("w").value) $("h").value = Math.round($("w").value * img.height / img.width);
+  });
+  $("h").addEventListener("input", function () {
+    if ($("lock").checked && img && $("h").value) $("w").value = Math.round($("h").value * img.width / img.height);
+  });
+
+  $("go").addEventListener("click", function () {
+    if (!img) { $("msg").textContent = "Choose an image first."; return; }
+    const w = Math.max(1, Math.round($("w").value));
+    const h = Math.max(1, Math.round($("h").value));
+    const c = document.createElement("canvas");
+    c.width = w;
+    c.height = h;
+    c.getContext("2d").drawImage(img, 0, 0, w, h);
+    output(c, $("fmt").value, 0.92, targetBytes());
+  });
+</script>
+</body>
+</html>

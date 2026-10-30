@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Image Compressor</title>
+  <link rel="stylesheet" href="tools/shared.css">
+  <style>
+    /* ---------- Theme colours ---------- */
+    :root {
+      color-scheme: light;
+      --bg: #f3f4f8;
+      --card: #ffffff;
+      --text: #1f2330;
+      --muted: #666b7a;
+      --border: #c9d6ff;
+      --heading: #6a11cb;
+      --drop-bg: #fff7f0;
+      --drop-hover: #ffe3cf;
+      --badge-grey-bg: #e4e7ee;   --badge-grey-text: #333;
+      --badge-green-bg: #38ef7d;  --badge-green-text: #064;
+      --badge-blue-bg: #cfe0ff;   --badge-blue-text: #12408f;
+      --badge-pink-bg: #ffd1e3;   --badge-pink-text: #a1124f;
+      --shadow: 0 6px 18px rgba(0,0,0,.12);
+    }
+    /* dark when the system is dark (unless the user forced light) */
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        color-scheme: dark;
+        --bg: #14151a;
+        --card: #1f2129;
+        --text: #eceef5;
+        --muted: #a3a8b8;
+        --border: #3b4260;
+        --heading: #b794ff;
+        --drop-bg: #2a2118;
+        --drop-hover: #3a2a1a;
+        --badge-grey-bg: #343846;   --badge-grey-text: #e3e5ee;
+        --badge-green-bg: #1f7a4a;  --badge-green-text: #d6ffe8;
+        --badge-blue-bg: #243a6b;   --badge-blue-text: #d3e2ff;
+        --badge-pink-bg: #6b2444;   --badge-pink-text: #ffd9e8;
+        --shadow: 0 6px 18px rgba(0,0,0,.5);
+      }
+    }
+    /* dark when the user forced dark */
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #14151a;
+      --card: #1f2129;
+      --text: #eceef5;
+      --muted: #a3a8b8;
+      --border: #3b4260;
+      --heading: #b794ff;
+      --drop-bg: #2a2118;
+      --drop-hover: #3a2a1a;
+      --badge-grey-bg: #343846;   --badge-grey-text: #e3e5ee;
+      --badge-green-bg: #1f7a4a;  --badge-green-text: #d6ffe8;
+      --badge-blue-bg: #243a6b;   --badge-blue-text: #d3e2ff;
+      --badge-pink-bg: #6b2444;   --badge-pink-text: #ffd9e8;
+      --shadow: 0 6px 18px rgba(0,0,0,.5);
+    }
+
+    /* ---------- Layout ---------- */
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif; margin: 0; padding: 20px;
+      background: var(--bg); color: var(--text); min-height: 100vh;
+    }
+    .container { max-width: 800px; margin: auto; }
+    .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+    h1 {
+      margin: 0; font-size: 1.6rem;
+      background: linear-gradient(90deg, #6a11cb, #2575fc, #ee0979);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .card {
+      background: var(--card); border-radius: 14px; padding: 20px;
+      margin-bottom: 18px; box-shadow: var(--shadow);
+      border-top: 5px solid #6a11cb;
+    }
+    .card:nth-of-type(2) { border-top-color: #2575fc; }
+    .card:nth-of-type(3) { border-top-color: #11998e; }
+    .card:nth-of-type(4) { border-top-color: #ee0979; }
+    .card h3 { margin-top: 0; color: var(--heading); }
+
+    #dropArea {
+      border: 3px dashed #ff6a00; border-radius: 12px; padding: 28px;
+      text-align: center; color: var(--muted); background: var(--drop-bg);
+    }
+    #dropArea.hover { background: var(--drop-hover); border-color: #ee0979; }
+
+    .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+    .field { display: flex; flex-direction: column; font-size: .9rem; font-weight: bold; }
+    input[type=number], select {
+      padding: 10px; border: 2px solid var(--border); border-radius: 8px;
+      font-size: 1rem; width: 150px; margin-top: 4px;
+      background: var(--card); color: var(--text);
+    }
+    input[type=number]:focus, select:focus { outline: none; border-color: #2575fc; }
+
+    button {
+      border: none; color: #fff; padding: 12px 22px; font-size: 1rem;
+      border-radius: 8px; cursor: pointer; font-weight: bold;
+    }
+    #themeBtn { background: linear-gradient(90deg, #6a11cb, #2575fc); padding: 8px 16px; font-size: .9rem; }
+    #exportBtn { background: linear-gradient(90deg, #ff512f, #dd2476); width: 100%; margin-top: 16px; font-size: 1.1rem; }
+    #downloadBtn { background: linear-gradient(90deg, #11998e, #38ef7d); width: 100%; margin-top: 10px; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+
+    .note { font-size: .85rem; color: var(--muted); }
+    .badges { margin: 12px 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .badge { padding: 6px 12px; border-radius: 8px; font-weight: bold; font-size: .9rem; }
+    .grey  { background: var(--badge-grey-bg);  color: var(--badge-grey-text); }
+    .green { background: var(--badge-green-bg); color: var(--badge-green-text); }
+    .blue  { background: var(--badge-blue-bg);  color: var(--badge-blue-text); }
+    .pink  { background: var(--badge-pink-bg);  color: var(--badge-pink-text); }
+
+    .images { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .images img { width: 100%; border-radius: 8px; border: 2px solid var(--border); }
+    #message { text-align: center; font-weight: bold; min-height: 24px; color: #ee0979; }
+    @media (max-width: 600px) { .images { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div id="nav"></div>
+<div class="container">
+  <div class="top">
+    <h1>🖼️ Image Compressor</h1>
+    <button id="themeBtn">🖥️ System</button>
+  </div>
+
+  <!-- Step 1: choose image -->
+  <div class="card">
+    <h3>1. Choose Image</h3>
+    <div id="dropArea">
+      <p>Drag and drop an image here</p>
+      <p>or</p>
+      <input type="file" id="fileInput" accept="image/*">
+    </div>
+    <div class="badges" id="fileInfo"></div>
+  </div>
+
+  <!-- Step 2: resize settings -->
+  <div class="card">
+    <h3>2. Resize Settings</h3>
+    <div class="row">
+      <label class="field">Width (px)
+        <input type="number" id="widthInput" placeholder="Enter width" min="1">
+      </label>
+      <label class="field">Height (px)
+        <input type="number" id="heightInput" placeholder="Enter height" min="1">
+      </label>
+      <label class="field">
+        <span><input type="checkbox" id="lockRatio" checked> Lock aspect ratio</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Step 3: export settings -->
+  <div class="card">
+    <h3>3. Export Settings</h3>
+    <div class="row">
+      <label class="field">Target file size (optional)
+        <input type="number" id="targetSize" placeholder="e.g. 500" min="1">
+      </label>
+      <label class="field">Unit
+        <select id="targetUnit">
+          <option value="KB">KB</option>
+          <option value="MB">MB</option>
+        </select>
+      </label>
+      <label class="field">Save image as
+        <select id="saveAs">
+          <option value="original">Original</option>
+          <option value="image/jpeg">JPG</option>
+          <option value="image/webp">WebP</option>
+          <option value="image/png">PNG</option>
+        </select>
+      </label>
+    </div>
+    <p class="note">Target size works for JPG and WebP only (PNG is lossless).</p>
+    <button id="exportBtn">Export →</button>
+  </div>
+
+  <p id="message"></p>
+
+  <!-- Result -->
+  <div class="card" id="resultCard" hidden>
+    <h3>Result</h3>
+    <div class="badges" id="resultBadges"></div>
+    <div class="images">
+      <div><b>Original</b><br><img id="originalImg"></div>
+      <div><b>Compressed</b><br><img id="compressedImg"></div>
+    </div>
+    <button id="downloadBtn">⬇ Download</button>
+  </div>
+</div>
+
+<script>
+  // ---------- Theme: System / Light / Dark ----------
+  const themeBtn = document.getElementById("themeBtn");
+  const modes = ["system", "light", "dark"];
+  const labels = { system: "🖥️ System", light: "☀️ Light", dark: "🌙 Dark" };
+  let mode = "system";
+  try { mode = localStorage.getItem("theme") || "system"; } catch (e) {}
+
+  function applyTheme() {
+    if (mode === "system") document.documentElement.removeAttribute("data-theme");
+    else document.documentElement.setAttribute("data-theme", mode);
+    themeBtn.textContent = labels[mode];
+    try { localStorage.setItem("theme", mode); } catch (e) {}
+  }
+  themeBtn.addEventListener("click", function () {
+    mode = modes[(modes.indexOf(mode) + 1) % modes.length];
+    applyTheme();
+  });
+  applyTheme();
+
+  // ---------- Compressor ----------
+  const dropArea = document.getElementById("dropArea");
+  const fileInput = document.getElementById("fileInput");
+  const fileInfo = document.getElementById("fileInfo");
+  const widthInput = document.getElementById("widthInput");
+  const heightInput = document.getElementById("heightInput");
+  const lockRatio = document.getElementById("lockRatio");
+  const targetSize = document.getElementById("targetSize");
+  const targetUnit = document.getElementById("targetUnit");
+  const saveAs = document.getElementById("saveAs");
+  const exportBtn = document.getElementById("exportBtn");
+  const downloadBtn = document.getElementById("downloadBtn");
+  const message = document.getElementById("message");
+  const resultCard = document.getElementById("resultCard");
+  const resultBadges = document.getElementById("resultBadges");
+  const originalImg = document.getElementById("originalImg");
+  const compressedImg = document.getElementById("compressedImg");
+
+  let selectedFile = null;
+  let img = null;
+  let resultUrl = "";
+  let resultExt = "jpg";
+
+  function formatSize(bytes) {
+    return bytes >= 1048576 ? (bytes / 1048576).toFixed(2) + " MB" : (bytes / 1024).toFixed(1) + " KB";
+  }
+
+  // Step 1: choose the file
+  async function setFile(f) {
+    if (!f || !f.type.startsWith("image/")) {
+      message.textContent = "Please choose an image file.";
+      return;
+    }
+    selectedFile = f;
+    message.textContent = "";
+    resultCard.hidden = true;
+
+    img = await loadImage(f);
+    originalImg.src = img.src;
+    widthInput.value = img.width;
+    heightInput.value = img.height;
+
+    fileInfo.innerHTML =
+      '<span class="badge blue">' + f.name + '</span>' +
+      '<span class="badge grey">' + img.width + ' x ' + img.height + '</span>' +
+      '<span class="badge pink">' + formatSize(f.size) + '</span>';
+  }
+
+  fileInput.addEventListener("change", function () { setFile(fileInput.files[0]); });
+
+  window.addEventListener("dragover", function (e) { e.preventDefault(); });
+  window.addEventListener("drop", function (e) { e.preventDefault(); });
+  dropArea.addEventListener("dragover", function () { dropArea.classList.add("hover"); });
+  dropArea.addEventListener("dragleave", function () { dropArea.classList.remove("hover"); });
+  dropArea.addEventListener("drop", function (e) {
+    dropArea.classList.remove("hover");
+    setFile(e.dataTransfer.files[0]);
+  });
+
+  // Step 2: lock aspect ratio
+  widthInput.addEventListener("input", function () {
+    if (lockRatio.checked && img && widthInput.value) {
+      heightInput.value = Math.round(widthInput.value * img.height / img.width);
+    }
+  });
+  heightInput.addEventListener("input", function () {
+    if (lockRatio.checked && img && heightInput.value) {
+      widthInput.value = Math.round(heightInput.value * img.width / img.height);
+    }
+  });
+
+  // Helpers
+  function loadImage(f) {
+    return new Promise(function (resolve) {
+      const im = new Image();
+      im.onload = function () { resolve(im); };
+      im.src = URL.createObjectURL(f);
+    });
+  }
+
+  function toBlobAsync(canvas, type, quality) {
+    return new Promise(function (resolve) { canvas.toBlob(resolve, type, quality); });
+  }
+
+  function drawOnCanvas(w, h, type) {
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(w));
+    canvas.height = Math.max(1, Math.round(h));
+    const ctx = canvas.getContext("2d");
+    if (type === "image/jpeg") {
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas;
+  }
+
+  // Binary search: best quality that fits under the target size
+  async function compressToTarget(w, h, type, targetBytes) {
+    let shrink = 1;
+    while (shrink > 0.1) {
+      const canvas = drawOnCanvas(w * shrink, h * shrink, type);
+      let low = 0.1, high = 0.95, best = null;
+      for (let i = 0; i < 7; i++) {
+        const mid = (low + high) / 2;
+        const blob = await toBlobAsync(canvas, type, mid);
+        if (blob.size <= targetBytes) { best = blob; low = mid; }
+        else { high = mid; }
+      }
+      if (best) return { blob: best, width: canvas.width, height: canvas.height };
+      shrink = shrink * 0.9;
+    }
+    return null;
+  }
+
+  // Export
+  exportBtn.addEventListener("click", async function () {
+    if (!selectedFile) { message.textContent = "Please choose an image first."; return; }
+
+    const w = Number(widthInput.value) || img.width;
+    const h = Number(heightInput.value) || img.height;
+
+    let type = saveAs.value;
+    if (type === "original") {
+      type = ["image/jpeg", "image/png", "image/webp"].includes(selectedFile.type)
+        ? selectedFile.type : "image/jpeg";
+    }
+
+    let targetBytes = 0;
+    message.textContent = "";
+    if (targetSize.value) {
+      targetBytes = Number(targetSize.value) * (targetUnit.value === "MB" ? 1048576 : 1024);
+      if (type === "image/png") {
+        type = "image/jpeg";
+        message.textContent = "Target size needs JPG/WebP, so JPG was used.";
+      }
+    }
+
+    let result;
+    if (targetBytes) {
+      result = await compressToTarget(w, h, type, targetBytes);
+      if (!result) { message.textContent = "Could not reach that size. Try a larger target."; return; }
+    } else {
+      const canvas = drawOnCanvas(w, h, type);
+      const blob = await toBlobAsync(canvas, type, 0.92);
+      result = { blob: blob, width: canvas.width, height: canvas.height };
+    }
+
+    resultUrl = URL.createObjectURL(result.blob);
+    compressedImg.src = resultUrl;
+    resultExt = type === "image/png" ? "png" : type === "image/webp" ? "webp" : "jpg";
+
+    const saved = (1 - result.blob.size / selectedFile.size) * 100;
+    resultBadges.innerHTML =
+      '<span class="badge grey">' + img.width + ' x ' + img.height + '</span> →' +
+      '<span class="badge green">' + result.width + ' x ' + result.height + '</span>' +
+      '<span class="badge pink">' + formatSize(selectedFile.size) + ' → ' + formatSize(result.blob.size) + '</span>' +
+      '<span class="badge blue">' + (saved > 0 ? saved.toFixed(1) + '% saved' : 'size increased') + '</span>';
+    resultCard.hidden = false;
+    resultCard.scrollIntoView({ behavior: "smooth" });
+  });
+
+  downloadBtn.addEventListener("click", function () {
+    const a = document.createElement("a");
+    a.href = resultUrl;
+    a.download = "compressed." + resultExt;
+    a.click();
+  });
+</script>
+</body>
+<script src="tools/shared.js"></script>
+</html>

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Batch Process</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div id="nav"></div>
+<main class="container">
+  <h1>Batch Process</h1>
+  <div class="card">
+    <h3>1. Choose Images</h3>
+    <div class="drop" id="drop">
+      <p>Drag and drop several images here, or</p>
+      <input type="file" id="file" accept="image/*" multiple>
+    </div>
+    <p class="info" id="info">No images selected</p>
+  </div>
+  <div class="card">
+    <h3>2. Settings (applied to every image)</h3>
+    <div class="row">
+      <label class="field">Max width (px)<input type="number" id="maxw" min="1" placeholder="optional"></label>
+      <label class="field">Max height (px)<input type="number" id="maxh" min="1" placeholder="optional"></label>
+      <label class="field">Format
+        <select id="fmt">
+          <option value="image/jpeg">JPG</option>
+          <option value="image/png">PNG</option>
+          <option value="image/webp">WebP</option>
+        </select>
+      </label>
+    </div>
+    <div class="row">
+      <label class="field">Target size (optional)<input type="number" id="ts" min="1" placeholder="e.g. 500"></label>
+      <label class="field">Unit
+        <select id="tu"><option value="KB">KB</option><option value="MB">MB</option></select>
+      </label>
+    </div>
+    <p class="note">Max sizes keep the aspect ratio and never enlarge. Target size works for JPG and WebP.</p>
+    <button class="btn" id="go">Process and download ZIP →</button>
+    <p class="msg" id="msg"></p>
+  </div>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="shared.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  const EXT = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+  let files = [];
+
+  function setFiles(list) {
+    files = list.filter(f => f.type.startsWith("image/"));
+    $("info").textContent = files.length ? files.length + " image(s) selected" : "No images selected";
+  }
+
+  $("file").addEventListener("change", () => setFiles([...$("file").files]));
+
+  const drop = $("drop");
+  drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("hover"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("hover"));
+  drop.addEventListener("drop", e => {
+    e.preventDefault();
+    drop.classList.remove("hover");
+    setFiles([...e.dataTransfer.files]);
+  });
+  window.addEventListener("dragover", e => e.preventDefault());
+  window.addEventListener("drop", e => e.preventDefault());
+
+  function baseName(name) { return name.replace(/\.[^.]+$/, ""); }
+
+  $("go").addEventListener("click", async function () {
+    if (!files.length) { $("msg").textContent = "Choose images first."; return; }
+
+    const maxW = Number($("maxw").value) || 0;
+    const maxH = Number($("maxh").value) || 0;
+    const target = (Number($("ts").value) || 0) * ($("tu").value === "MB" ? 1048576 : 1024);
+    let type = $("fmt").value;
+    if (target && type === "image/png") type = "image/jpeg";
+
+    const zip = new JSZip();
+    let done = 0, skipped = 0;
+    $("go").disabled = true;
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        $("msg").textContent = "Processing " + (i + 1) + " of " + files.length + "…";
+        const im = await loadImage(files[i]);
+
+        let s = 1;
+        if (maxW) s = Math.min(s, maxW / im.width);
+        if (maxH) s = Math.min(s, maxH / im.height);
+        const canvas = paint(im, type, im.width * s, im.height * s);
+
+        let blob;
+        if (target) {
+          const r = await fitToSize(canvas, type, target);
+          if (!r) { skipped++; continue; }
+          blob = r.blob;
+        } else {
+          blob = await toBlob(canvas, type, 0.92);
+        }
+        zip.file(baseName(files[i].name) + "." + EXT[type], blob);
+        done++;
+      }
+
+      if (!done) { $("msg").textContent = "No images could reach that size."; return; }
+
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(zipBlob);
+      a.download = "images.zip";
+      a.click();
+      $("msg").textContent = "Done: " + done + " image(s) saved to images.zip" +
+        (skipped ? ". " + skipped + " could not reach the target size." : ".");
+    } catch (err) {
+      $("msg").textContent = "Something went wrong. Try fewer or smaller images.";
+    } finally {
+      $("go").disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

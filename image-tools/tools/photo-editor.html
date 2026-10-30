@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Photo Editor</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div id="nav"></div>
+<main class="container">
+  <h1>Photo Editor</h1>
+  <div class="card">
+    <h3>1. Choose Image</h3>
+    <div class="drop" id="drop">
+      <p>Drag and drop an image here, or</p>
+      <input type="file" id="file" accept="image/*">
+    </div>
+    <p class="info" id="info"></p>
+  </div>
+  <div class="card">
+    <h3>2. Adjust</h3>
+    <div class="row">
+      <label class="field">Brightness: <span id="bv">100</span>%<input type="range" id="b" min="0" max="200" value="100"></label>
+      <label class="field">Contrast: <span id="cv">100</span>%<input type="range" id="c" min="0" max="200" value="100"></label>
+      <label class="field">Saturation: <span id="sv">100</span>%<input type="range" id="s" min="0" max="200" value="100"></label>
+      <label class="field">Grayscale: <span id="gv">0</span>%<input type="range" id="g" min="0" max="100" value="0"></label>
+      <label class="field">Sepia: <span id="sev">0</span>%<input type="range" id="se" min="0" max="100" value="0"></label>
+      <label class="field">Blur: <span id="blv">0</span>px<input type="range" id="bl" min="0" max="10" value="0"></label>
+    </div>
+    <canvas id="preview" class="preview"></canvas>
+    <p class="note">Filters may not preview in older Safari versions.</p>
+    <div class="row">
+      <button class="btn" id="reset">Reset</button>
+      <label class="field">Format
+        <select id="fmt">
+          <option value="image/jpeg">JPG</option>
+          <option value="image/png">PNG</option>
+          <option value="image/webp">WebP</option>
+        </select>
+      </label>
+      <button class="btn" id="go">Save →</button>
+    </div>
+    <p class="msg" id="msg"></p>
+  </div>
+  <div class="card" id="resultCard" hidden>
+    <h3>Result</h3>
+    <img id="out" class="preview" alt="Edited image">
+    <p class="info" id="resultInfo"></p>
+    <button class="btn" id="dl">⬇ Download</button>
+  </div>
+</main>
+<script src="shared.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  let img = null;
+  const DEFAULTS = { b: 100, c: 100, s: 100, g: 0, se: 0, bl: 0 };
+  const VALUE_IDS = { b: "bv", c: "cv", s: "sv", g: "gv", se: "sev", bl: "blv" };
+
+  function draw() {
+    if (!img) return;
+    const v = {};
+    Object.keys(DEFAULTS).forEach(function (k) {
+      v[k] = $(k).value;
+      $(VALUE_IDS[k]).textContent = v[k];
+    });
+    const c = $("preview");
+    c.width = img.width;
+    c.height = img.height;
+    const ctx = c.getContext("2d");
+    ctx.filter =
+      "brightness(" + v.b + "%) contrast(" + v.c + "%) saturate(" + v.s + "%) " +
+      "grayscale(" + v.g + "%) sepia(" + v.se + "%) blur(" + v.bl + "px)";
+    ctx.drawImage(img, 0, 0);
+    ctx.filter = "none";
+  }
+
+  Object.keys(DEFAULTS).forEach(k => $(k).addEventListener("input", draw));
+
+  $("reset").addEventListener("click", function () {
+    Object.keys(DEFAULTS).forEach(k => { $(k).value = DEFAULTS[k]; });
+    draw();
+  });
+
+  setupDrop($("drop"), $("file"), async function (f) {
+    if (!f.type.startsWith("image/")) { $("msg").textContent = "Please choose an image."; return; }
+    $("msg").textContent = "";
+    img = await loadImage(f);
+    $("info").textContent = img.width + " x " + img.height + " · " + fmtSize(f.size);
+    $("resultCard").hidden = true;
+    draw();
+  });
+
+  $("go").addEventListener("click", function () {
+    if (!img) { $("msg").textContent = "Choose an image first."; return; }
+    output($("preview"), $("fmt").value);
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rotate Image</title>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div id="nav"></div>
+<main class="container">
+  <h1>Rotate &amp; Flip Image</h1>
+  <div class="card">
+    <h3>1. Choose Image</h3>
+    <div class="drop" id="drop">
+      <p>Drag and drop an image here, or</p>
+      <input type="file" id="file" accept="image/*">
+    </div>
+    <p class="info" id="info"></p>
+  </div>
+  <div class="card">
+    <h3>2. Transform</h3>
+    <div class="row">
+      <button class="btn" id="rotL">↺ Rotate left</button>
+      <button class="btn" id="rotR">↻ Rotate right</button>
+      <button class="btn" id="flipH">⇆ Flip horizontal</button>
+      <button class="btn" id="flipV">⇅ Flip vertical</button>
+      <button class="btn" id="reset">Reset</button>
+    </div>
+    <canvas id="preview" class="preview"></canvas>
+    <div class="row">
+      <label class="field">Format
+        <select id="fmt">
+          <option value="image/png">PNG</option>
+          <option value="image/jpeg">JPG</option>
+          <option value="image/webp">WebP</option>
+        </select>
+      </label>
+      <button class="btn" id="go">Save →</button>
+    </div>
+    <p class="msg" id="msg"></p>
+  </div>
+  <div class="card" id="resultCard" hidden>
+    <h3>Result</h3>
+    <img id="out" class="preview" alt="Rotated image">
+    <p class="info" id="resultInfo"></p>
+    <button class="btn" id="dl">⬇ Download</button>
+  </div>
+</main>
+<script src="shared.js"></script>
+<script>
+  const $ = id => document.getElementById(id);
+  let img = null, angle = 0, flipH = false, flipV = false;
+
+  function render() {
+    if (!img) return;
+    const swap = angle % 180 !== 0;
+    const c = $("preview");
+    c.width = swap ? img.height : img.width;
+    c.height = swap ? img.width : img.height;
+    const ctx = c.getContext("2d");
+    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.save();
+    ctx.translate(c.width / 2, c.height / 2);
+    ctx.rotate(angle * Math.PI / 180);
+    ctx.scale(flipH ? -1 : 1, flipV ? -1 : 1);
+    ctx.drawImage(img, -img.width / 2, -img.height / 2);
+    ctx.restore();
+  }
+
+  setupDrop($("drop"), $("file"), async function (f) {
+    if (!f.type.startsWith("image/")) { $("msg").textContent = "Please choose an image."; return; }
+    $("msg").textContent = "";
+    img = await loadImage(f);
+    angle = 0; flipH = false; flipV = false;
+    $("info").textContent = img.width + " x " + img.height + " · " + fmtSize(f.size);
+    $("resultCard").hidden = true;
+    render();
+  });
+
+  $("rotL").onclick = () => { angle = (angle + 270) % 360; render(); };
+  $("rotR").onclick = () => { angle = (angle + 90) % 360; render(); };
+  $("flipH").onclick = () => { flipH = !flipH; render(); };
+  $("flipV").onclick = () => { flipV = !flipV; render(); };
+  $("reset").onclick = () => { angle = 0; flipH = false; flipV = false; render(); };
+
+  $("go").addEventListener("click", function () {
+    if (!img) { $("msg").textContent = "Choose an image first."; return; }
+    output($("preview"), $("fmt").value);
+  });
+</script>
+</body>
+</html>
